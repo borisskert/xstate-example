@@ -38,6 +38,47 @@ const actions = {
   }
 };
 
+export const deeperSubStates = {
+  initial: "substateA221",
+  states: {
+    substateA221: {
+      entry: "entry",
+      on: {
+        TOGGLE: "substateA222"
+      },
+      exit: "exit"
+    },
+    substateA222: {
+      entry: "entry",
+      on: {
+        TOGGLE: "substateA221"
+      },
+      exit: "exit"
+    }
+  }
+};
+
+export const deepSubStates = {
+  initial: "substateA21",
+  states: {
+    substateA21: {
+      entry: "entry",
+      on: {
+        TOGGLE: "substateA21"
+      },
+      exit: "exit",
+    },
+    substateA22: {
+      entry: "entry",
+      on: {
+        TOGGLE: "substateA22"
+      },
+      exit: "exit",
+      ...deeperSubStates
+    }
+  }
+};
+
 export const subStates = {
   initial: "substateA1",
   states: {
@@ -53,7 +94,8 @@ export const subStates = {
       on: {
         TOGGLE: "substateA1"
       },
-      exit: "exit"
+      exit: "exit",
+      ...deepSubStates,
     }
   }
 };
@@ -90,26 +132,101 @@ const states = {
   }
 };
 
-const machine = Machine(
-  {
-    ...states,
-    context
-  },
-  {
-    actions
-  }
-);
+function defaultMachine() {
+  return Machine(
+      {
+        ...states,
+        context
+      },
+      {
+        actions
+      }
+  );
+}
 
-const service = interpret(machine).onTransition(
+function setupInitialState(states, stateAsString) {
+  return {
+    ...states,
+    initial: stateAsString,
+  };
+}
+
+function buildStatesWithInitialState(states, subState, initialState) {
+  return {
+    ...states,
+    [subState]: {
+      ...states[subState],
+      initial: initialState,
+    }
+  }
+}
+
+function buildStateWithInitialStatesRecursively(states, subState, deeperStates) {
+  if(deeperStates && deeperStates.length > 1) {
+    const initialState = deeperStates[0];
+
+    return {
+      ...states,
+      [subState]: {
+        ...states[subState],
+        initial: initialState,
+        states: buildStateWithInitialStatesRecursively(states[subState].states, initialState, deeperStates.slice(1, deeperStates.length)),
+      }
+    }
+  } else {
+    const initialState = deeperStates[0];
+    return buildStatesWithInitialState(states, subState, initialState);
+  }
+}
+
+function buildStatesWithDeepInitialState(splitStates) {
+  const parentState = splitStates[0];
+  const rootStates = buildStateWithInitialStatesRecursively(states.states, parentState, splitStates.slice(1, splitStates.length));
+
+  return {
+    ...states,
+    initial: parentState,
+    states: rootStates,
+  };
+}
+
+function createStateConfigFromState(stateAsString) {
+  const splitStates = stateAsString.split('.');
+
+  if (splitStates.length > 1) {
+    return buildStatesWithDeepInitialState(splitStates);
+  }
+
+  return setupInitialState(states, stateAsString);
+}
+
+function machineStartingFromState(stateAsString) {
+  if(stateAsString) {
+    const createdStates = createStateConfigFromState(stateAsString);
+
+    const config = {
+      ...createdStates,
+      context
+    };
+
+    return Machine(
+        config,
+        {
+          actions
+        }
+    );
+  }
+
+  return defaultMachine();
+}
+
+const service = interpret(machineStartingFromState('substateA.substateA2.substateA22.substateA222')).onTransition(
     (state, event) => {
   console.log(`onTransition() - ${JSON.stringify(event)} -> ${JSON.stringify(state.value)}`);
 });
 
-
 console.log('=== START ===');
-service.start({
-  substateA: "substateA2"
-});
+service.start();
 
 console.log('=== NEXT ===');
 service.send("NEXT");
