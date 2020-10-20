@@ -100,19 +100,24 @@ const machine = Machine(
   }
 );
 
-const service = interpret(machine).onTransition((state) => {
-  console.log(`onTransition() - ${JSON.stringify(state.value)}`);
+const service = interpret(machine).onTransition(
+    (state, event) => {
+  console.log(`onTransition() - ${JSON.stringify(event)} -> ${JSON.stringify(state.value)}`);
 });
 
-//service.start();
-//service.start("active");
-//service.start("substateA");
+
+console.log('=== START ===');
 service.start({
   substateA: "substateA2"
 });
 
-//service.send("TOGGLE");
-//service.send("TOGGLE");
+console.log('=== NEXT ===');
 service.send("NEXT");
+
+console.log('=== TOGGLE ===');
 service.send("TOGGLE");
+
+console.log('=== NEXT ===');
 service.send("NEXT");
+
+console.log('=== END ===');
